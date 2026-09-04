@@ -335,20 +335,22 @@ def receive_sensor_data():
 # ============================================================
 @app.route("/api/nodes", methods=["GET"])
 def get_nodes():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("""
-        SELECT r.*
-        FROM readings r
-        INNER JOIN (
-            SELECT node_id, MAX(id) AS latest_id
-            FROM readings
-            GROUP BY node_id
-        ) latest ON r.id = latest.latest_id
-        ORDER BY r.node_id
-    """)
-    rows = cursor.fetchall()
-    return jsonify({"success": True, "count": len(rows), "nodes": [dict(row) for row in rows]})
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT r.*
+            FROM readings r
+            WHERE r.id IN (
+                SELECT MAX(id) FROM readings GROUP BY node_id
+            )
+            ORDER BY r.node_id
+        """)
+        rows = cursor.fetchall()
+        return jsonify({"success": True, "count": len(rows), "nodes": [dict(row) for row in rows]})
+    except sqlite3.Error as e:
+        app.logger.error("Database error in get_nodes: %s", e)
+        return jsonify({"success": False, "error": "Database query failed."}), 500
 
 @app.route("/api/nodes/<node_id>", methods=["GET"])
 def get_node(node_id):
@@ -381,22 +383,26 @@ def get_alerts():
 
 @app.route("/api/statistics", methods=["GET"])
 def get_statistics():
-    db = get_db()
-    cursor = db.cursor()
-    cursor.execute("SELECT COUNT(*) AS total_readings FROM readings")
-    total_readings = cursor.fetchone()["total_readings"]
-    cursor.execute("SELECT COUNT(*) AS total_alerts FROM alerts")
-    total_alerts = cursor.fetchone()["total_alerts"]
-    cursor.execute("SELECT COUNT(DISTINCT node_id) AS total_nodes FROM readings")
-    total_nodes = cursor.fetchone()["total_nodes"]
-    cursor.execute("SELECT risk_level, COUNT(*) AS count FROM readings GROUP BY risk_level")
-    risk_distribution = {row["risk_level"]: row["count"] for row in cursor.fetchall()}
-    return jsonify({"success": True, "statistics": {
-        "total_nodes": total_nodes,
-        "total_readings": total_readings,
-        "total_alerts": total_alerts,
-        "risk_distribution": risk_distribution
-    }})
+    try:
+        db = get_db()
+        cursor = db.cursor()
+        cursor.execute("SELECT COUNT(*) AS total_readings FROM readings")
+        total_readings = cursor.fetchone()["total_readings"]
+        cursor.execute("SELECT COUNT(*) AS total_alerts FROM alerts")
+        total_alerts = cursor.fetchone()["total_alerts"]
+        cursor.execute("SELECT COUNT(DISTINCT node_id) AS total_nodes FROM readings")
+        total_nodes = cursor.fetchone()["total_nodes"]
+        cursor.execute("SELECT risk_level, COUNT(*) AS count FROM readings GROUP BY risk_level")
+        risk_distribution = {row["risk_level"]: row["count"] for row in cursor.fetchall()}
+        return jsonify({"success": True, "statistics": {
+            "total_nodes": total_nodes,
+            "total_readings": total_readings,
+            "total_alerts": total_alerts,
+            "risk_distribution": risk_distribution
+        }})
+    except sqlite3.Error as e:
+        app.logger.error("Database error in get_statistics: %s", e)
+        return jsonify({"success": False, "error": "Failed to retrieve statistics."}), 500
 
 # ============================================================
 # SOS endpoints
