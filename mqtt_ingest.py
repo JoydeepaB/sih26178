@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-MQTT subscriber that forwards sensor JSON to the Flask backend.
+"""MQTT subscriber that forwards sensor JSON to the Flask backend.
 Subscribe to:
   - sensors/readings  (payload: JSON object or JSON array)
   - sensors/sos       (payload: SOS JSON object)
@@ -19,6 +18,7 @@ TOPIC_SOS = os.environ.get("TOPIC_SOS", "sensors/sos")
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:5000")
 
+
 def forward_to_backend(path, payload):
     url = BACKEND_URL.rstrip("/") + path
     try:
@@ -27,10 +27,12 @@ def forward_to_backend(path, payload):
     except Exception as e:
         logging.exception("Failed to forward to backend %s: %s", url, e)
 
+
 def on_connect(client, userdata, flags, rc):
     logging.info("Connected to MQTT broker (rc=%s). Subscribing to topics...", rc)
     client.subscribe(TOPIC_READINGS)
     client.subscribe(TOPIC_SOS)
+
 
 def on_message(client, userdata, msg):
     payload = msg.payload.decode("utf-8", errors="ignore")
@@ -45,6 +47,7 @@ def on_message(client, userdata, msg):
         forward_to_backend("/api/sensor-data", data)
     elif msg.topic == TOPIC_SOS:
         forward_to_backend("/api/sos", data)
+
 
 def run():
     client = mqtt.Client()

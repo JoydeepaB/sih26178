@@ -50,6 +50,7 @@ def close_db(exception):
     if db is not None:
         db.close()
 
+
 def initialize_database():
     db = sqlite3.connect(DATABASE)
     cursor = db.cursor()
@@ -101,10 +102,11 @@ def initialize_database():
 # ============================================================
 # RISK ENGINE
 # ============================================================
+
 def calculate_risk(data):
-    water = float(data["water_cm"])
-    soil = float(data["soil_pct"])
-    rain = float(data["rain_mm_hr"])
+    water = float(data["water_cm"]) 
+    soil = float(data["soil_pct"]) 
+    rain = float(data["rain_mm_hr"]) 
 
     score = 0
     reasons = []
@@ -157,9 +159,11 @@ def calculate_risk(data):
 # ============================================================
 # VALIDATION UTILITIES
 # ============================================================
+
 def is_reasonable_timestamp(ts, allowed_drift_seconds=TIMESTAMP_ALLOWED_DRIFT):
     now = int(time.time())
     return (now - allowed_drift_seconds) <= ts <= (now + allowed_drift_seconds)
+
 
 def normalize_and_validate_sensor_payload(data):
     # Accept 'rain_mm' from ESP32 firmware as synonym for rain_mm_hr
@@ -221,6 +225,7 @@ def normalize_and_validate_sensor_payload(data):
 # ============================================================
 # DB WRITE HELPERS
 # ============================================================
+
 def save_reading(data, risk_level, risk_score):
     db = get_db()
     cursor = db.cursor()
@@ -258,10 +263,8 @@ def save_alert(node_id, risk_level, message, timestamp):
     db = get_db()
     cursor = db.cursor()
     try:
-        cursor.execute("""
-            INSERT INTO alerts (node_id, risk_level, message, timestamp)
-            VALUES (?, ?, ?, ?)
-        """, (node_id, risk_level, message, timestamp))
+        cursor.execute("INSERT INTO alerts (node_id, risk_level, message, timestamp) VALUES (?, ?, ?, ?)",
+                       (node_id, risk_level, message, timestamp))
         db.commit()
     except sqlite3.DatabaseError:
         db.rollback()
