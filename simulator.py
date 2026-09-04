@@ -2,7 +2,7 @@ import requests
 import time
 import random
 
-API_URL = "http://127.0.0.1:5000/api/sensor-data"
+API_URL="https://sih26178-1.onrender.com/api/sensor-data" python simulator.py
 
 NODES = {
     "Drain_Zone_A": {
