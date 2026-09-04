@@ -40,6 +40,8 @@ DEVICE_ID_MAX_LENGTH = 64
 # ============================================================
 def get_db():
     if "db" not in g:
+        # check_same_thread=False to be safe if using threaded servers, but
+        # single gunicorn worker is recommended for SQLite on Render.
         g.db = sqlite3.connect(DATABASE, check_same_thread=False)
         g.db.row_factory = sqlite3.Row
     return g.db
@@ -258,10 +260,8 @@ def save_alert(node_id, risk_level, message, timestamp):
     db = get_db()
     cursor = db.cursor()
     try:
-        cursor.execute("""
-            INSERT INTO alerts (node_id, risk_level, message, timestamp)
-            VALUES (?, ?, ?, ?)
-        """, (node_id, risk_level, message, timestamp))
+        cursor.execute("INSERT INTO alerts (node_id, risk_level, message, timestamp) VALUES (?, ?, ?, ?)",
+                       (node_id, risk_level, message, timestamp))
         db.commit()
     except sqlite3.DatabaseError:
         db.rollback()
@@ -292,6 +292,8 @@ def receive_sensor_data():
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({"success": False, "error": "JSON body required."}), 400
+
+    app.logger.info("Received sensor payload: %s", payload)
 
     results = []
     items = payload if isinstance(payload, list) else [payload]
