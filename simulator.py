@@ -53,12 +53,12 @@ def send_data(node_id, data):
                 "| Water:", payload["water_cm"],
                 "| Soil:", payload["soil_pct"],
                 "| Rain:", payload["rain_mm_hr"],
-                "| Risk:", result["risk_level"],
-                "| Score:", result["risk_score"]
+                "| Risk:", result["risk"]["level"],
+                "| Score:", result["risk"]["score"]
             )
 
-            if result["reasons"]:
-                print("Reasons:", ", ".join(result["reasons"]))
+            if result["risk"]["reasons"]:
+                print("Reasons:", ", ".join(result["risk"]["reasons"]))
 
             if result["alert_created"]:
                 print("Alert created")
