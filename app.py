@@ -161,15 +161,27 @@ def post_sensor_data():
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (node_id, water, soil, rain, temp, humidity, ts, risk_level, risk_score))
         
+        alert_created = False
         if risk_level in ["HIGH", "CRITICAL"]:
             msg = f"{risk_level} risk detected at node {node_id}"
             cursor.execute("INSERT INTO alerts (node_id, risk_level, message, timestamp) VALUES (?, ?, ?, ?)",
                            (node_id, risk_level, msg, ts))
+            alert_created = True
         
         db.commit()
-        results.append({"success": True, "node_id": node_id, "risk": {"level": risk_level, "score": risk_score, "reasons": reasons}})
+        results.append({
+            "success": True,
+            "node_id": node_id,
+            "risk": {"level": risk_level, "score": risk_score, "reasons": reasons},
+            "alert_created": alert_created
+        })
 
-    return jsonify({"success": True, "results": results if isinstance(payload, list) else results[0]}), 201
+    if not isinstance(payload, list):
+        res = results[0] if results else {"success": False, "error": "Processing failed"}
+        status = 201 if res.get("success") else 400
+        return jsonify(res), status
+
+    return jsonify({"success": True, "results": results}), 201
 
 @app.route("/api/nodes", methods=["GET"])
 def get_nodes():
