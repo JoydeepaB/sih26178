@@ -274,14 +274,9 @@ def save_alert(node_id, risk_level, message, timestamp):
 # ============================================================
 # API: HOME / HEALTH
 # ============================================================
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
-    return jsonify({
-        "project": "SIH26178",
-        "system": "AI-Powered Environmental Intelligence Network",
-        "status": "online",
-        "message": "Environmental monitoring backend is running."
-    })
+    return render_template("dashboard.html")
 
 @app.route("/health", methods=["GET"])
 def health():
