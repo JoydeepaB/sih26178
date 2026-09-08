@@ -25,26 +25,24 @@ def get_db():
 @app.teardown_appcontext
 def close_db(e):
     db = g.pop("db", None)
-    if db is not None:
-        db.close()
+    if db is not None: db.close()
 
 def init_db():
-    with app.app_context():
-        db = sqlite3.connect(DB_PATH)
-        c = db.cursor()
-        c.execute("""CREATE TABLE IF NOT EXISTS readings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT, 
-            location_name TEXT, water_cm REAL, soil_pct REAL, rain_mm_hr REAL,
-            temp REAL, humidity REAL, timestamp INTEGER,
-            risk_level TEXT, risk_score INTEGER, lat REAL, lon REAL)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT, 
-            risk_level TEXT, message TEXT, timestamp INTEGER)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS sos_alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT, 
-            latitude REAL, longitude REAL, timestamp INTEGER)""")
-        db.commit()
-        db.close()
+    db = sqlite3.connect(DB_PATH)
+    c = db.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS readings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT, 
+        location_name TEXT, water_cm REAL, soil_pct REAL, rain_mm_hr REAL,
+        temp REAL, humidity REAL, timestamp INTEGER,
+        risk_level TEXT, risk_score INTEGER, lat REAL, lon REAL)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, node_id TEXT, 
+        risk_level TEXT, message TEXT, timestamp INTEGER)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS sos_alerts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, device_id TEXT, 
+        latitude REAL, longitude REAL, timestamp INTEGER)""")
+    db.commit()
+    db.close()
 
 def get_risk_label(score):
     if score >= 9: return "CRITICAL"
@@ -57,51 +55,55 @@ def analyze_risk(data, trend):
     s = float(data.get("soil_pct", 0))
     r = float(data.get("rain_mm_hr", 0))
     score = 0
-    reasons = []
-    if w > 75: score += 4; reasons.append("High Water")
-    elif w > 50: score += 2; reasons.append("Rising Level")
-    if s > 80: score += 3; reasons.append("Saturated Soil")
-    if r > 25: score += 4; reasons.append("Heavy Rain")
-    if trend > 1.5: score += 3; reasons.append("Flash Surge")
-    current_lvl = get_risk_label(score)
+    if w > 75: score += 4
+    elif w > 50: score += 2
+    if s > 80: score += 3
+    if r > 25: score += 4
+    if trend > 1.5: score += 3
+    
+    current = get_risk_label(score)
     pred_score = score + (int(trend * 2) if trend > 0.5 else 0)
-    return current_lvl, score, get_risk_label(pred_score), reasons
+    return current, score, get_risk_label(pred_score)
 
 @app.route("/")
 def home():
-    return jsonify({"status": "online", "system": "SIH26178 Intelligence Network"})
+    return jsonify({"status": "active", "info": "SIH26178 Network"})
 
 @app.route("/api/sensor-data", methods=["POST"])
-def ingest_data():
+def ingest():
     payload = request.get_json(silent=True)
     if not payload: return jsonify({"success": False}), 400
-    data_list = payload if isinstance(payload, list) else [payload]
+    items = payload if isinstance(payload, list) else [payload]
     db = get_db()
     cursor = db.cursor()
-    responses = []
-    for item in data_list:
+    
+    for item in items:
         uid = item["node_id"]
-        place = item.get("location_name", LOCATIONS.get(uid, "Remote Node"))
+        loc = item.get("location_name", LOCATIONS.get(uid, "National Station"))
         lt = item.get("latitude", 23.83)
         ln = item.get("longitude", 91.28)
+        
         cursor.execute("SELECT water_cm FROM readings WHERE node_id=? ORDER BY id DESC LIMIT 1", (uid,))
-        last = cursor.fetchone()
-        diff = (float(item["water_cm"]) - last["water_cm"]) if last else 0
-        cur_status, val, next_status, alerts = analyze_risk(item, diff)
-        now = int(item.get("timestamp", time.time()))
+        prev = cursor.fetchone()
+        trend = (float(item.get("water_cm", 0)) - prev[0]) if prev else 0
+        
+        curr_lvl, sc, pred_lvl = analyze_risk(item, trend)
+        ts = int(item.get("timestamp", time.time()))
+        
         cursor.execute("""INSERT INTO readings 
             (node_id, location_name, water_cm, soil_pct, rain_mm_hr, temp, humidity, timestamp, risk_level, risk_score, lat, lon)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", 
-            (uid, place, item["water_cm"], item["soil_pct"], item["rain_mm_hr"], item["temp"], item["humidity"], now, cur_status, val, lt, ln))
-        if cur_status in ["HIGH", "CRITICAL"]:
-            msg = f"{cur_status}: " + " & ".join(alerts)
-            cursor.execute("INSERT INTO alerts (node_id, risk_level, message, timestamp) VALUES (?,?,?,?)", (uid, cur_status, msg, now))
-        db.commit()
-        responses.append({"id": uid, "status": cur_status, "predicted": next_status})
-    return jsonify({"success": True, "data": responses}), 201
+            (uid, loc, item.get("water_cm", 0), item.get("soil_pct", 0), item.get("rain_mm_hr", 0), 
+             item.get("temp", 0), item.get("humidity", 0), ts, curr_lvl, sc, lt, ln))
+        
+        if curr_lvl in ["HIGH", "CRITICAL"]:
+            cursor.execute("INSERT INTO alerts (node_id, risk_level, message, timestamp) VALUES (?,?,?,?)", 
+                           (uid, curr_lvl, f"Flood Warning at {loc}", ts))
+    db.commit()
+    return jsonify({"success": True}), 201
 
 @app.route("/api/nodes")
-def fetch_nodes():
+def get_nodes():
     db = get_db()
     data = db.execute("SELECT * FROM readings WHERE id IN (SELECT MAX(id) FROM readings GROUP BY node_id)").fetchall()
     output = []
@@ -110,17 +112,18 @@ def fetch_nodes():
         cursor = db.cursor()
         cursor.execute("SELECT water_cm FROM readings WHERE node_id=? AND id < ? ORDER BY id DESC LIMIT 1", (item["node_id"], item["id"]))
         prev = cursor.fetchone()
-        change = (item["water_cm"] - prev["water_cm"]) if prev else 0
-        _, _, forecast, _ = analyze_risk(item, change)
+        diff = (item["water_cm"] - prev[0]) if prev else 0
+        _, _, forecast = analyze_risk(item, diff)
         item["predicted_risk"] = forecast
         output.append(item)
     return jsonify({"success": True, "nodes": output})
 
-@app.route("/api/alerts")
-def fetch_alerts():
+@app.route("/api/statistics")
+def get_stats():
     db = get_db()
-    data = db.execute("SELECT * FROM alerts ORDER BY timestamp DESC LIMIT 10").fetchall()
-    return jsonify({"success": True, "alerts": [dict(r) for r in data]})
+    r = db.execute("SELECT COUNT(*) FROM readings").fetchone()[0]
+    a = db.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
+    return jsonify({"success": True, "statistics": {"total_readings": r, "total_alerts": a}})
 
 @app.route("/api/sos", methods=["GET", "POST"])
 def manage_sos():
@@ -134,18 +137,8 @@ def manage_sos():
     data = db.execute("SELECT * FROM sos_alerts ORDER BY timestamp DESC LIMIT 10").fetchall()
     return jsonify({"success": True, "sos": [dict(r) for r in data]})
 
-@app.route("/api/statistics")
-def fetch_stats():
-    try:
-        db = get_db()
-        readings = db.execute("SELECT COUNT(*) FROM readings").fetchone()[0]
-        warnings = db.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
-        return jsonify({"success": True, "statistics": {"total_readings": readings, "total_alerts": warnings}})
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
 @app.route("/api/nodes/<node_id>/history")
-def fetch_history(node_id):
+def get_history(node_id):
     db = get_db()
     data = db.execute("SELECT * FROM readings WHERE node_id=? ORDER BY timestamp ASC", (node_id,)).fetchall()
     return jsonify({"success": True, "history": [dict(r) for r in data]})
