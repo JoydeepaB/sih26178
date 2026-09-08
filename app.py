@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 from flask import Flask, request, jsonify, g
+from flask_cors import CORS
 import sqlite3
 import os
 import time
 import logging
 
 app = Flask(__name__)
+CORS(app)
+
 logging.basicConfig(level=logging.INFO)
 
 # ============================================================
