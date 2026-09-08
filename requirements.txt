@@ -1,4 +1,4 @@
-flask
-gunicorn
-requests
-paho-mqtt
+flask==3.0.3
+gunicorn==21.2.0
+requests==2.32.3
+paho-mqtt==1.6.1
