@@ -3,22 +3,20 @@ import time
 import random
 
 URL = "https://sih26178-1.onrender.com/api/sensor-data"
-NODES = ["Drain_Zone_A", "River_Bank_B", "Lowland_Zone_C"]
 
 def seed():
-    now = int(time.time())
-    for node in NODES:
+    nodes = ["Drain_Zone_A", "River_Bank_B"]
+    for node in nodes:
         batch = []
-        val = 25
+        w = 20
         for i in range(24):
-            val += random.uniform(-2, 6)
+            w += random.uniform(-2, 5)
             batch.append({
-                "node_id": node, "water_cm": round(max(20, val), 2),
-                "soil_pct": 50, "rain_mm_hr": 2, "temp": 28, "humidity": 75,
-                "timestamp": now - (i * 3600)
+                "node_id": node, "water_cm": round(max(10, w), 2),
+                "timestamp": int(time.time()) - (i * 3600)
             })
         requests.post(URL, json=batch)
-    print("History Pushed.")
+    print("Graphs populated with 24h history.")
 
 if __name__ == "__main__":
     seed()
