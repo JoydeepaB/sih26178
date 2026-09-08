@@ -25,8 +25,7 @@ def get_db():
 @app.teardown_appcontext
 def close_db(e):
     db = g.pop("db", None)
-    if db is not None:
-        db.close()
+    if db is not None: db.close()
 
 def init_db():
     db = sqlite3.connect(DB_PATH)
@@ -58,10 +57,10 @@ def analyze_risk(data, trend):
     
     if w > 75: 
         score += 4
-        reasons.append("Flood Threshold")
+        reasons.append("High Water")
     elif w > 50: 
         score += 2
-        reasons.append("High Water")
+        reasons.append("Rising Level")
     
     if s > 80: 
         score += 3
@@ -69,23 +68,21 @@ def analyze_risk(data, trend):
     
     if r > 25: 
         score += 4
-        reasons.append("Heavy Downpour")
+        reasons.append("Heavy Rain")
     
     if trend > 1.5: 
         score += 3
-        reasons.append("Rapid Rise")
+        reasons.append("Flash Surge")
 
     current_lvl = get_risk_label(score)
-    
-    pred_score = score
-    if trend > 0.5:
-        pred_score += int(trend * 2)
-    elif trend < -0.5:
-        pred_score -= 1
-
+    pred_score = score + (int(trend * 2) if trend > 0.5 else 0)
     pred_lvl = get_risk_label(pred_score)
     
     return current_lvl, score, pred_lvl, reasons
+
+@app.route("/")
+def home():
+    return jsonify({"status": "online", "system": "SIH26178 Intelligence Network"})
 
 @app.route("/api/sensor-data", methods=["POST"])
 def ingest_data():
@@ -127,11 +124,7 @@ def ingest_data():
 @app.route("/api/nodes")
 def fetch_nodes():
     db = get_db()
-    data = db.execute("""
-        SELECT r.* FROM readings r 
-        WHERE id IN (SELECT MAX(id) FROM readings GROUP BY node_id)
-    """).fetchall()
-    
+    data = db.execute("SELECT * FROM readings WHERE id IN (SELECT MAX(id) FROM readings GROUP BY node_id)").fetchall()
     output = []
     for row in data:
         item = dict(row)
@@ -142,13 +135,12 @@ def fetch_nodes():
         _, _, forecast, _ = analyze_risk(item, change)
         item["predicted_risk"] = forecast
         output.append(item)
-        
     return jsonify({"success": True, "nodes": output})
 
 @app.route("/api/alerts")
 def fetch_alerts():
     db = get_db()
-    data = db.execute("SELECT * FROM alerts ORDER BY timestamp DESC LIMIT 15").fetchall()
+    data = db.execute("SELECT * FROM alerts ORDER BY timestamp DESC LIMIT 10").fetchall()
     return jsonify({"success": True, "alerts": [dict(r) for r in data]})
 
 @app.route("/api/sos", methods=["GET", "POST"])
@@ -160,7 +152,7 @@ def manage_sos():
             (req["device_id"], req["lat"], req["lon"], int(time.time())))
         db.commit()
         return jsonify({"success": True})
-    data = db.execute("SELECT * FROM sos_alerts ORDER BY timestamp DESC LIMIT 15").fetchall()
+    data = db.execute("SELECT * FROM sos_alerts ORDER BY timestamp DESC LIMIT 10").fetchall()
     return jsonify({"success": True, "sos": [dict(r) for r in data]})
 
 @app.route("/api/statistics")
