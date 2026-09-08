@@ -12,35 +12,34 @@
         .stat-card { background: #161e2d; padding: 15px; border-radius: 8px; border: 1px solid #2d3748; }
         .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         #map-box { height: 450px; border-radius: 8px; border: 1px solid #2d3748; }
-        table { width: 100%; border-collapse: collapse; font-size: 14px; }
-        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #2d3748; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #2d3748; }
         .CRITICAL { color: #ef4444; font-weight: bold; }
         .HIGH { color: #f97316; font-weight: bold; }
         .MODERATE { color: #facc15; }
         .LOW { color: #4ade80; }
-        .ai-tag { background: #38bdf8; color: #0b0f1a; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 5px; }
     </style>
 </head>
 <body>
 
-    <div id="banner" class="danger-zone">ACTIVE EMERGENCY: PREDICTIVE MODELS INDICATE CRITICAL FLOOD RISK</div>
+    <div id="banner" class="danger-zone">PREDICTIVE ALERT: CRITICAL WATER SURGE DETECTED</div>
 
     <div class="stats-bar">
         <div class="stat-card">Network Logs<div style="font-size: 24px; color: #38bdf8;" id="logs">0</div></div>
         <div class="stat-card">Active Alerts<div style="font-size: 24px; color: #f87171;" id="warns">0</div></div>
         <div class="stat-card">SOS Signals<div style="font-size: 24px; color: #facc15;" id="sos-count">0</div></div>
-        <div class="stat-card">Network Status<div style="font-size: 24px; color: #4ade80;">HYBRID LIVE</div></div>
+        <div class="stat-card">Core Status<div style="font-size: 24px; color: #4ade80;">HYBRID LIVE</div></div>
     </div>
 
     <div class="layout">
         <div>
             <div class="stat-card">
-                <h3>Regional Intelligence Map</h3>
+                <h3>Live Situation Map (National View)</h3>
                 <div id="map-box"></div>
             </div>
             <div class="stat-card" style="margin-top: 20px;">
-                <h3>Hydrological Trend: <span id="chart-node-name">Select a Node</span></h3>
-                <canvas id="history-chart" height="100"></canvas>
+                <h3>Hydrological Trends: <span id="chart-name">Select Station</span></h3>
+                <canvas id="live-chart" height="90"></canvas>
             </div>
         </div>
         <div>
@@ -59,42 +58,38 @@
             </div>
             <div class="stat-card" style="margin-top: 20px;">
                 <h3>Emergency Dispatch Feed</h3>
-                <div id="sos-feed" style="max-height: 150px; overflow-y: auto;"></div>
+                <div id="sos-feed" style="max-height: 120px; overflow-y: auto;"></div>
             </div>
         </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        const API_ROOT = "https://sih26178-1.onrender.com";
-        const map = L.map('map-box').setView([23.8, 91.2], 11);
+        const API = "https://sih26178-1.onrender.com";
+        const map = L.map('map-box').setView([22.0, 78.0], 5);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        L.tileLayer.wms("https://bhuvan-vec1.nrsc.gov.in/bhuvan/wms", {
-            layers: 'cadastral:flood_inundation', format: 'image/png', transparent: true, version: '1.1.1'
-        }).addTo(map);
-        
-        let histChart, riskPie;
+        let graph, pieChart;
         const markers = {};
 
-        async function refresh() {
+        async function sync() {
             try {
-                const sRes = await fetch(`${API_ROOT}/api/statistics`);
+                const sRes = await fetch(`${API}/api/statistics`);
                 const s = (await sRes.json()).statistics;
                 document.getElementById('logs').innerText = s.total_readings;
                 document.getElementById('warns').innerText = s.total_alerts;
 
-                const nRes = await fetch(`${API_ROOT}/api/nodes`);
-                const nodes = (await nRes.json()).nodes;
+                const nRes = await fetch(`${API}/api/nodes`);
+                const nodes = (await nRes.json()).nodes || [];
                 const tbody = document.querySelector('#telemetry tbody');
                 tbody.innerHTML = "";
                 
                 let danger = false;
-                let riskCounts = { CRITICAL: 0, HIGH: 0, MODERATE: 0, LOW: 0 };
+                let riskData = { CRITICAL: 0, HIGH: 0, MODERATE: 0, LOW: 0 };
 
                 nodes.forEach(n => {
                     if(n.risk_level === "CRITICAL") danger = true;
-                    riskCounts[n.risk_level]++;
+                    riskData[n.risk_level]++;
                     tbody.innerHTML += `<tr onclick="updateChart('${n.node_id}', '${n.location_name}')" style="cursor:pointer">
                         <td><b>${n.location_name}</b></td>
                         <td class="${n.risk_level}">${n.risk_level}</td>
@@ -102,46 +97,43 @@
                     updateMarker(n);
                 });
 
-                updatePie(riskCounts);
                 document.getElementById('banner').style.display = danger ? 'block' : 'none';
+                updatePie(riskData);
 
-                const sosRes = await fetch(`${API_ROOT}/api/sos`);
-                const sosList = (await sosRes.json()).sos;
-                document.getElementById('sos-count').innerText = sosList.length;
-                document.getElementById('sos-feed').innerHTML = sosList.map(item => `
-                    <div style="border-bottom: 1px solid #333; padding: 10px;">
-                        <b style="color:red">SOS</b> <b>${item.device_id}</b><br>
-                        <small>${new Date(item.timestamp*1000).toLocaleString()}</small>
-                    </div>`).join("");
+                const sosRes = await fetch(`${API}/api/sos`);
+                const sos = (await sosRes.json()).sos || [];
+                document.getElementById('sos-count').innerText = sos.length;
+                document.getElementById('sos-feed').innerHTML = sos.map(i => `<div style="padding:5px; border-bottom:1px solid #333"><b>${i.device_id}</b> triggered SOS</div>`).join("");
                 
-                sosList.forEach(s => L.circle([s.latitude, s.longitude], {color:'red', radius:1000}).addTo(map));
-                if(nodes.length > 0 && !histChart) updateChart(nodes[0].node_id, nodes[0].location_name);
+                sos.forEach(s => L.circle([s.latitude, s.longitude], {color:'red', radius:2000}).addTo(map));
+
+                if (nodes.length > 0 && !graph) updateChart(nodes[0].node_id, nodes[0].location_name);
             } catch(e) {}
         }
 
         function updateMarker(n) {
             const color = n.risk_level === "CRITICAL" ? "red" : n.risk_level === "HIGH" ? "orange" : "green";
-            if (!markers[n.node_id]) markers[n.node_id] = L.circleMarker([n.lat, n.lon], { radius: 8, fillOpacity: 0.8 }).addTo(map);
-            markers[n.node_id].setStyle({ color: color }).bindPopup(`<b>${n.location_name}</b><br>Risk: ${n.risk_level}`);
+            if (!markers[n.node_id]) markers[n.node_id] = L.circleMarker([n.lat, n.lon], { radius: 7, fillOpacity: 0.8 }).addTo(map);
+            markers[n.node_id].setStyle({ color: color, fillColor: color }).bindPopup(`<b>${n.location_name}</b><br>Risk: ${n.risk_level}`);
         }
 
         function updatePie(counts) {
             const ctx = document.getElementById('risk-pie').getContext('2d');
-            if (riskPie) riskPie.destroy();
-            riskPie = new Chart(ctx, { type: 'pie', data: { labels: ['Crit', 'High', 'Mod', 'Low'], datasets: [{ data: [counts.CRITICAL, counts.HIGH, counts.MODERATE, counts.LOW], backgroundColor: ['#ef4444', '#f97316', '#facc15', '#4ade80'] }] }, options: { plugins: { legend: { position: 'bottom', labels: {color: '#fff'} } } } });
+            if (pieChart) pieChart.destroy();
+            pieChart = new Chart(ctx, { type: 'pie', data: { labels: ['Critical', 'High', 'Mod', 'Low'], datasets: [{ data: [counts.CRITICAL, counts.HIGH, counts.MODERATE, counts.LOW], backgroundColor: ['#ef4444', '#f97316', '#facc15', '#4ade80'] }] }, options: { plugins: { legend: { labels: {color: '#fff'} } } } });
         }
 
         async function updateChart(id, name) {
-            document.getElementById('chart-node-name').innerText = name;
-            const res = await fetch(`${API_ROOT}/api/nodes/${id}/history`);
+            document.getElementById('chart-name').innerText = name;
+            const res = await fetch(`${API}/api/nodes/${id}/history`);
             const h = (await res.json()).history.slice(-20);
-            const ctx = document.getElementById('history-chart').getContext('2d');
-            if (histChart) histChart.destroy();
-            histChart = new Chart(ctx, { type: 'line', data: { labels: h.map(i => new Date(i.timestamp*1000).toLocaleTimeString()), datasets: [{ label: 'Water (cm)', data: h.map(i => i.water_cm), borderColor: '#38bdf8', tension: 0.4 }] } });
+            const ctx = document.getElementById('live-chart').getContext('2d');
+            if (graph) graph.destroy();
+            graph = new Chart(ctx, { type: 'line', data: { labels: h.map(i => new Date(i.timestamp*1000).toLocaleTimeString()), datasets: [{ label: 'Water (cm)', data: h.map(i => i.water_cm), borderColor: '#38bdf8', tension: 0.4 }] } });
         }
 
-        setInterval(refresh, 5000);
-        refresh();
+        setInterval(sync, 5000);
+        sync();
     </script>
 </body>
 </html>
