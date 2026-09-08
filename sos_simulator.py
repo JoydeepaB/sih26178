@@ -3,13 +3,11 @@ import time
 
 URL = "https://sih26178-1.onrender.com/api/sos"
 
-def trigger():
+def send():
     requests.post(URL, json={
-        "device_id": "RESCUE_TEAM_01",
-        "lat": 23.834, "lon": 91.282,
-        "timestamp": int(time.time())
+        "device_id": "SIH_FIELD_USER_12", "lat": 23.835, "lon": 91.282
     })
-    print("SOS Dispatched.")
+    print("SOS Alert visible on dashboard now!")
 
 if __name__ == "__main__":
-    trigger()
+    send()
