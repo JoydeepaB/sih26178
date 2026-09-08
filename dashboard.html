@@ -3,16 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>SIH26178 - Environmental Intelligence Network</title>
-
-    <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    >
-
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <style>
         :root {
             --bg: #0f172a;
@@ -20,303 +13,225 @@
             --text: #f8fafc;
             --muted: #94a3b8;
             --border: #334155;
-
             --blue: #38bdf8;
             --red: #ef4444;
             --orange: #f59e0b;
             --yellow: #facc15;
             --green: #22c55e;
         }
-
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             font-family: system-ui, -apple-system, sans-serif;
         }
-
         body {
             background: var(--bg);
             color: var(--text);
             padding: 20px;
         }
-
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             gap: 15px;
             flex-wrap: wrap;
-
             padding-bottom: 16px;
             margin-bottom: 24px;
-
             border-bottom: 1px solid var(--border);
         }
-
         h1 {
             color: var(--blue);
             font-size: 1.5rem;
         }
-
         .subtitle {
             color: var(--muted);
             font-size: 0.875rem;
             margin-top: 5px;
         }
-
         .status {
             background: #065f46;
             color: #a7f3d0;
-
             padding: 5px 12px;
             border-radius: 20px;
-
             font-size: 0.8rem;
         }
-
         .status.offline {
             background: #7f1d1d;
             color: #fecaca;
         }
-
         .dashboard-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
             margin-bottom: 24px;
         }
-
         .card {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 12px;
-
             padding: 20px;
         }
-
         .card h3 {
             color: var(--muted);
             font-size: 0.8rem;
-
             text-transform: uppercase;
             letter-spacing: 0.05em;
-
             margin-bottom: 8px;
         }
-
         .value {
             font-size: 2rem;
             font-weight: 700;
         }
-
         .main-layout {
             display: grid;
             grid-template-columns: 2fr 1fr;
             gap: 24px;
         }
-
         .panel {
             background: var(--card);
-
             border: 1px solid var(--border);
             border-radius: 12px;
-
             padding: 20px;
             margin-bottom: 24px;
         }
-
         .panel h2 {
             font-size: 1.1rem;
-
             border-bottom: 1px solid var(--border);
-
             padding-bottom: 8px;
             margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
-
+        #chart-node-select {
+            background: var(--bg);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-size: 0.8rem;
+        }
+        .auto-tag {
+            font-size: 0.7rem;
+            color: var(--muted);
+            font-weight: normal;
+        }
         #map {
             height: 350px;
             width: 100%;
             border-radius: 8px;
         }
-
         .chart-box {
             height: 250px;
             position: relative;
         }
-
         table {
             width: 100%;
             border-collapse: collapse;
-
             font-size: 0.875rem;
         }
-
-        th,
-        td {
+        th, td {
             text-align: left;
-
             padding: 11px;
-
             border-bottom: 1px solid var(--border);
         }
-
         th {
             color: var(--muted);
             font-weight: 600;
         }
-
         .risk-low {
             color: var(--green);
             font-weight: bold;
         }
-
         .risk-moderate {
             color: var(--yellow);
             font-weight: bold;
         }
-
         .risk-high {
             color: var(--orange);
             font-weight: bold;
         }
-
         .risk-critical {
             color: var(--red);
             font-weight: bold;
         }
-
         .empty {
             text-align: center;
             color: var(--muted);
             padding: 20px;
         }
-
         @media (max-width: 1024px) {
-
             .dashboard-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
-
             .main-layout {
                 grid-template-columns: 1fr;
             }
         }
-
         @media (max-width: 600px) {
-
             body {
                 padding: 10px;
             }
-
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
-
             header {
                 align-items: flex-start;
             }
-
             .panel {
                 padding: 14px;
             }
         }
     </style>
 </head>
-
-
 <body>
 
 <header>
-
     <div>
         <h1>SIH26178 Intelligence Network</h1>
-
-        <p class="subtitle">
-            Real-time Environmental Monitoring & Disaster Risk Dashboard
-        </p>
+        <p class="subtitle">Real-time Environmental Monitoring & Disaster Risk Dashboard</p>
     </div>
-
-    <div id="connection-status" class="status">
-        Connecting...
-    </div>
-
+    <div id="connection-status" class="status">Connecting...</div>
 </header>
 
-
-<!-- Summary cards -->
-
 <div class="dashboard-grid">
-
     <div class="card">
         <h3>Active Nodes</h3>
         <div class="value" id="stat-nodes">0</div>
     </div>
-
     <div class="card">
         <h3>Total Readings</h3>
         <div class="value" id="stat-readings">0</div>
     </div>
-
     <div class="card">
         <h3>Active Alerts</h3>
-
-        <div
-            class="value"
-            id="stat-alerts"
-            style="color: var(--red);"
-        >
-            0
-        </div>
+        <div class="value" id="stat-alerts" style="color: var(--red);">0</div>
     </div>
-
     <div class="card">
         <h3>System Risk State</h3>
-
-        <div
-            class="value"
-            id="stat-max-risk"
-            style="font-size: 1.5rem;"
-        >
-            NORMAL
-        </div>
+        <div class="value" id="stat-max-risk" style="font-size: 1.5rem;">NORMAL</div>
     </div>
-
 </div>
 
-
 <div class="main-layout">
-
-    <!-- Left side -->
-
     <div>
-
         <div class="panel">
-
             <h2>
-                Node Metrics & Trends
+                <span>Node Metrics & Trends <span class="auto-tag" id="chart-auto-tag">(auto: highest risk)</span></span>
+                <select id="chart-node-select"><option value="">Loading nodes…</option></select>
             </h2>
-
             <div class="chart-box">
                 <canvas id="metricChart"></canvas>
             </div>
-
         </div>
-
-
         <div class="panel">
-
-            <h2>
-                Live Sensor Nodes
-            </h2>
-
+            <h2>Live Sensor Nodes</h2>
             <div style="overflow-x: auto;">
-
                 <table>
-
                     <thead>
-
                         <tr>
                             <th>Node ID</th>
                             <th>Water (cm)</th>
@@ -325,1091 +240,461 @@
                             <th>Risk</th>
                             <th>Last Updated</th>
                         </tr>
-
                     </thead>
-
                     <tbody id="nodes-table-body">
-
                         <tr>
-                            <td colspan="6" class="empty">
-                                Loading telemetry data...
-                            </td>
+                            <td colspan="6" class="empty">Loading telemetry data...</td>
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
-
-    <!-- Right side -->
-
     <div>
-
         <div class="panel">
-
-            <h2>
-                Environmental & SOS Map
-            </h2>
-
+            <h2>Environmental & SOS Map</h2>
             <div id="map"></div>
-
         </div>
-
-
         <div class="panel">
-
-            <h2>
-                Recent Emergency Alerts
-            </h2>
-
-            <div
-                style="
-                    max-height: 250px;
-                    overflow-y: auto;
-                "
-            >
-
+            <h2>Recent Emergency Alerts</h2>
+            <div style="max-height: 250px; overflow-y: auto;">
                 <table>
-
                     <thead>
-
                         <tr>
                             <th>Time</th>
                             <th>Node</th>
                             <th>Message</th>
                         </tr>
-
                     </thead>
-
                     <tbody id="alerts-table-body">
-
                         <tr>
-                            <td colspan="3" class="empty">
-                                No active warnings.
-                            </td>
+                            <td colspan="3" class="empty">No active warnings.</td>
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
-
         <div class="panel">
-
-            <h2>
-                Emergency SOS Signals
-            </h2>
-
-            <div
-                style="
-                    max-height: 220px;
-                    overflow-y: auto;
-                "
-            >
-
+            <h2>Emergency SOS Signals</h2>
+            <div style="max-height: 220px; overflow-y: auto;">
                 <table>
-
                     <thead>
-
                         <tr>
                             <th>Time</th>
                             <th>Device</th>
                             <th>Location</th>
                         </tr>
-
                     </thead>
-
                     <tbody id="sos-table-body">
-
                         <tr>
-                            <td colspan="3" class="empty">
-                                No SOS signals.
-                            </td>
+                            <td colspan="3" class="empty">No SOS signals.</td>
                         </tr>
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
-
-<footer style="
-    text-align: center;
-    color: var(--muted);
-    font-size: 12px;
-    padding: 10px;
-">
+<footer style="text-align: center; color: var(--muted); font-size: 12px; padding: 10px;">
     SIH26178 - Environmental Intelligence Network
 </footer>
 
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
-
-/* Backend URL */
-
 const API_URL = "https://sih26178-1.onrender.com";
+const RISK_RANK = { LOW: 0, MODERATE: 1, HIGH: 2, CRITICAL: 3 };
 
+let chartNodeId = null;
+let chartAutoMode = true;
 
-/* ---------------- MAP ---------------- */
-
-const map = L.map("map").setView(
-    [23.8315, 91.2868],
-    13
-);
-
-L.tileLayer(
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-        maxZoom: 19,
-        attribution: "&copy; OpenStreetMap contributors"
-    }
-).addTo(map);
-
-
-/* Some demo locations for the sensor nodes */
+const map = L.map("map").setView([23.8315, 91.2868], 13);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
+}).addTo(map);
 
 const nodeLocations = {
-
     "Drain_Zone_A": [23.8315, 91.2868],
-
     "River_Bank_B": [23.8410, 91.2790],
-
     "Lowland_Zone_C": [23.8365, 91.2820],
-
     "N1": [23.8340, 91.2850]
-
 };
-
 
 const nodeMarkers = {};
 const sosMarkers = {};
 
-
-/* ---------------- CHART ---------------- */
-
-const chartContext =
-    document
-        .getElementById("metricChart")
-        .getContext("2d");
-
-
-const metricChart = new Chart(
-    chartContext,
-    {
-        type: "line",
-
-        data: {
-
-            labels: [],
-
-            datasets: [
-
-                {
-                    label: "Water Level (cm)",
-
-                    data: [],
-
-                    borderColor: "#38bdf8",
-
-                    tension: 0.3,
-
-                    borderWidth: 2
-                },
-
-                {
-                    label: "Soil Moisture (%)",
-
-                    data: [],
-
-                    borderColor: "#22c55e",
-
-                    tension: 0.3,
-
-                    borderWidth: 2
-                }
-
-            ]
-
-        },
-
-        options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-                x: {
-                    ticks: {
-                        color: "#94a3b8"
-                    },
-
-                    grid: {
-                        color: "#334155"
-                    }
-                },
-
-                y: {
-                    ticks: {
-                        color: "#94a3b8"
-                    },
-
-                    grid: {
-                        color: "#334155"
-                    }
-                }
-
+const chartContext = document.getElementById("metricChart").getContext("2d");
+const metricChart = new Chart(chartContext, {
+    type: "line",
+    data: {
+        labels: [],
+        datasets: [
+            {
+                label: "Water Level (cm)",
+                data: [],
+                borderColor: "#38bdf8",
+                tension: 0.3,
+                borderWidth: 2
             },
-
-            plugins: {
-
-                legend: {
-                    labels: {
-                        color: "#f8fafc"
-                    }
-                }
-
+            {
+                label: "Soil Moisture (%)",
+                data: [],
+                borderColor: "#22c55e",
+                tension: 0.3,
+                borderWidth: 2
             }
-
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: {
+                ticks: { color: "#94a3b8" },
+                grid: { color: "#334155" }
+            },
+            y: {
+                ticks: { color: "#94a3b8" },
+                grid: { color: "#334155" }
+            }
+        },
+        plugins: {
+            legend: {
+                labels: { color: "#f8fafc" }
+            }
         }
-
     }
-);
+});
 
-
-/* ---------------- HELPERS ---------------- */
+document.getElementById("chart-node-select").addEventListener("change", function(e) {
+    if (!e.target.value) {
+        return;
+    }
+    chartNodeId = e.target.value;
+    chartAutoMode = false;
+    document.getElementById("chart-auto-tag").textContent = "(manual)";
+    loadHistory(chartNodeId);
+});
 
 function getRiskClass(risk) {
-
     if (!risk) {
         return "risk-low";
     }
-
-    return "risk-" +
-        risk.toLowerCase();
-
+    return "risk-" + risk.toLowerCase();
 }
 
-
 function formatTime(timestamp) {
-
     if (!timestamp) {
         return "N/A";
     }
-
-    return new Date(
-        timestamp * 1000
-    ).toLocaleTimeString();
-
+    return new Date(timestamp * 1000).toLocaleTimeString();
 }
 
-
-/* ---------------- NODES ---------------- */
-
 async function loadNodes() {
-
     try {
-
-        const response =
-            await fetch(
-                API_URL + "/api/nodes"
-            );
-
-
+        const response = await fetch(API_URL + "/api/nodes");
         if (!response.ok) {
             throw new Error("Node API error");
         }
-
-
-        const data =
-            await response.json();
-
-
+        const data = await response.json();
         if (!data.success) {
             return;
         }
-
-
-        const nodes =
-            data.nodes || [];
-
-
-        const table =
-            document.getElementById(
-                "nodes-table-body"
-            );
-
-
+        const nodes = data.nodes || [];
+        const table = document.getElementById("nodes-table-body");
         table.innerHTML = "";
 
-
         if (nodes.length === 0) {
-
             table.innerHTML = `
                 <tr>
-                    <td colspan="6" class="empty">
-                        No sensor data available.
-                    </td>
+                    <td colspan="6" class="empty">No sensor data available.</td>
                 </tr>
             `;
-
             return;
         }
 
-
         let highestRisk = "LOW";
-
+        let highestRiskNodeId = nodes[0].node_id;
+        let highestRiskRank = -1;
 
         nodes.forEach(function(node) {
-
-            const risk =
-                node.risk_level || "LOW";
-
-
-            /* Find highest risk */
-
-            if (risk === "CRITICAL") {
-
-                highestRisk = "CRITICAL";
-
-            } else if (
-                risk === "HIGH" &&
-                highestRisk !== "CRITICAL"
-            ) {
-
-                highestRisk = "HIGH";
-
-            } else if (
-                risk === "MODERATE" &&
-                highestRisk === "LOW"
-            ) {
-
-                highestRisk = "MODERATE";
-
+            const risk = node.risk_level || "LOW";
+            const rank = RISK_RANK[risk] !== undefined ? RISK_RANK[risk] : 0;
+            if (rank > highestRiskRank) {
+                highestRiskRank = rank;
+                highestRisk = risk;
+                highestRiskNodeId = node.node_id;
             }
 
-
-            const row =
-                document.createElement("tr");
-
-
+            const row = document.createElement("tr");
             row.innerHTML = `
-
-                <td>
-                    <strong>
-                        ${node.node_id}
-                    </strong>
-                </td>
-
-                <td>
-                    ${node.water_cm}
-                </td>
-
-                <td>
-                    ${node.soil_pct}
-                </td>
-
-                <td>
-                    ${node.rain_mm_hr}
-                </td>
-
-                <td class="${getRiskClass(risk)}">
-                    ${risk}
-                </td>
-
-                <td>
-                    ${formatTime(node.timestamp)}
-                </td>
-
+                <td><strong>${node.node_id}</strong></td>
+                <td>${node.water_cm}</td>
+                <td>${node.soil_pct}</td>
+                <td>${node.rain_mm_hr}</td>
+                <td class="${getRiskClass(risk)}">${risk}</td>
+                <td>${formatTime(node.timestamp)}</td>
             `;
-
-
             table.appendChild(row);
-
-
             updateNodeMarker(node);
-
         });
 
+        const riskElement = document.getElementById("stat-max-risk");
+        riskElement.innerText = highestRisk;
+        riskElement.className = "value " + getRiskClass(highestRisk);
 
-        const riskElement =
-            document.getElementById(
-                "stat-max-risk"
-            );
+        syncNodeDropdown(nodes.map(function(n) { return n.node_id; }));
 
-
-        riskElement.innerText =
-            highestRisk;
-
-
-        riskElement.className =
-            "value " +
-            getRiskClass(highestRisk);
-
-
-        /* Load chart for first node */
-
-        if (nodes.length > 0) {
-
-            loadHistory(
-                nodes[0].node_id
-            );
-
+        if (chartAutoMode) {
+            chartNodeId = highestRiskNodeId;
         }
-
+        if (chartNodeId) {
+            document.getElementById("chart-node-select").value = chartNodeId;
+            loadHistory(chartNodeId);
+        }
     } catch (error) {
-
-        console.error(
-            "Node loading error:",
-            error
-        );
-
+        console.error("Node loading error:", error);
         setOffline();
-
     }
-
 }
 
-
-/* ---------------- NODE MARKERS ---------------- */
-
-function updateNodeMarker(node) {
-
-    const nodeId =
-        node.node_id;
-
-
-    let position =
-        nodeLocations[nodeId];
-
-
-    if (!position) {
-
-        position = [
-            23.8315 +
-            (Object.keys(nodeMarkers).length * 0.002),
-
-            91.2868 +
-            (Object.keys(nodeMarkers).length * 0.002)
-        ];
-
+function syncNodeDropdown(nodeIds) {
+    const select = document.getElementById("chart-node-select");
+    const existing = Array.from(select.options).map(function(o) { return o.value; });
+    const changed = existing.length !== nodeIds.length || nodeIds.some(function(id) { return !existing.includes(id); });
+    if (!changed) {
+        return;
     }
 
+    const current = select.value;
+    select.innerHTML = nodeIds.map(function(id) { return '<option value="' + id + '">' + id + '</option>'; }).join("");
+    if (nodeIds.includes(current)) {
+        select.value = current;
+    }
+}
 
-    let color =
-        "#22c55e";
+function updateNodeMarker(node) {
+    const nodeId = node.node_id;
+    let position = nodeLocations[nodeId];
 
+    if (!position) {
+        position = [
+            23.8315 + (Object.keys(nodeMarkers).length * 0.002),
+            91.2868 + (Object.keys(nodeMarkers).length * 0.002)
+        ];
+    }
 
+    let color = "#22c55e";
     if (node.risk_level === "MODERATE") {
         color = "#eab308";
     }
-
     if (node.risk_level === "HIGH") {
         color = "#f97316";
     }
-
     if (node.risk_level === "CRITICAL") {
         color = "#ef4444";
     }
 
-
     const popup = `
-
         <b>${nodeId}</b>
-
         <br><br>
-
-        Risk:
-        <b style="color:${color}">
-            ${node.risk_level}
-        </b>
-
-        <br>
-
-        Score:
-        ${node.risk_score}
-
-        <br>
-
-        Water:
-        ${node.water_cm} cm
-
-        <br>
-
-        Soil:
-        ${node.soil_pct}%
-
-        <br>
-
-        Rain:
-        ${node.rain_mm_hr} mm/h
-
-        <br>
-
-        Temperature:
-        ${node.temp} °C
-
-        <br>
-
-        Humidity:
-        ${node.humidity} %
-
+        Risk: <b style="color:${color}">${node.risk_level}</b>
+        <br>Score: ${node.risk_score}
+        <br>Water: ${node.water_cm} cm
+        <br>Soil: ${node.soil_pct}%
+        <br>Rain: ${node.rain_mm_hr} mm/h
+        <br>Temperature: ${node.temp} °C
+        <br>Humidity: ${node.humidity} %
     `;
 
-
     if (nodeMarkers[nodeId]) {
-
         nodeMarkers[nodeId].setStyle({
-
             color: color,
             fillColor: color
-
         });
-
-        nodeMarkers[nodeId]
-            .setPopupContent(popup);
-
+        nodeMarkers[nodeId].setPopupContent(popup);
     } else {
-
-        nodeMarkers[nodeId] =
-            L.circleMarker(
-                position,
-                {
-                    radius: 10,
-                    color: color,
-                    fillColor: color,
-                    fillOpacity: 0.7
-                }
-            )
-            .addTo(map);
-
-
-        nodeMarkers[nodeId]
-            .bindPopup(popup);
-
+        nodeMarkers[nodeId] = L.circleMarker(position, {
+            radius: 10,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.7
+        }).addTo(map);
+        nodeMarkers[nodeId].bindPopup(popup);
     }
-
 }
-
-
-/* ---------------- HISTORY ---------------- */
 
 async function loadHistory(nodeId) {
-
     try {
-
-        const response =
-            await fetch(
-                API_URL +
-                "/api/nodes/" +
-                encodeURIComponent(nodeId) +
-                "/history"
-            );
-
-
+        const response = await fetch(API_URL + "/api/nodes/" + encodeURIComponent(nodeId) + "/history");
         if (!response.ok) {
             return;
         }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            !data.success ||
-            !data.history
-        ) {
+        const data = await response.json();
+        if (!data.success || !data.history) {
             return;
         }
+        const history = data.history.slice(-15);
 
-
-        const history =
-            data.history.slice(-15);
-
-
-        metricChart.data.labels =
-            history.map(function(item) {
-
-                return formatTime(
-                    item.timestamp
-                );
-
-            });
-
-
-        metricChart.data.datasets[0].data =
-            history.map(function(item) {
-
-                return item.water_cm;
-
-            });
-
-
-        metricChart.data.datasets[1].data =
-            history.map(function(item) {
-
-                return item.soil_pct;
-
-            });
-
-
+        metricChart.data.labels = history.map(function(item) {
+            return formatTime(item.timestamp);
+        });
+        metricChart.data.datasets[0].data = history.map(function(item) {
+            return item.water_cm;
+        });
+        metricChart.data.datasets[1].data = history.map(function(item) {
+            return item.soil_pct;
+        });
         metricChart.update();
-
     } catch (error) {
-
-        console.error(
-            "History loading error:",
-            error
-        );
-
+        console.error("History loading error:", error);
     }
-
 }
-
-
-/* ---------------- STATISTICS ---------------- */
 
 async function loadStatistics() {
-
     try {
-
-        const response =
-            await fetch(
-                API_URL +
-                "/api/statistics"
-            );
-
-
+        const response = await fetch(API_URL + "/api/statistics");
         if (!response.ok) {
             return;
         }
-
-
-        const data =
-            await response.json();
-
-
-        if (
-            data.success &&
-            data.statistics
-        ) {
-
-            document.getElementById(
-                "stat-nodes"
-            ).innerText =
-                data.statistics.total_nodes;
-
-
-            document.getElementById(
-                "stat-readings"
-            ).innerText =
-                data.statistics.total_readings;
-
-
-            document.getElementById(
-                "stat-alerts"
-            ).innerText =
-                data.statistics.total_alerts;
-
+        const data = await response.json();
+        if (data.success && data.statistics) {
+            document.getElementById("stat-nodes").innerText = data.statistics.total_nodes;
+            document.getElementById("stat-readings").innerText = data.statistics.total_readings;
+            document.getElementById("stat-alerts").innerText = data.statistics.total_alerts;
         }
-
     } catch (error) {
-
-        console.error(
-            "Statistics error:",
-            error
-        );
-
+        console.error("Statistics error:", error);
     }
-
 }
-
-
-/* ---------------- ALERTS ---------------- */
 
 async function loadAlerts() {
-
     try {
-
-        const response =
-            await fetch(
-                API_URL +
-                "/api/alerts"
-            );
-
-
+        const response = await fetch(API_URL + "/api/alerts");
         if (!response.ok) {
             return;
         }
-
-
-        const data =
-            await response.json();
-
-
+        const data = await response.json();
         if (!data.success) {
             return;
         }
-
-
-        const table =
-            document.getElementById(
-                "alerts-table-body"
-            );
-
-
+        const table = document.getElementById("alerts-table-body");
         table.innerHTML = "";
 
-
-        if (
-            !data.alerts ||
-            data.alerts.length === 0
-        ) {
-
+        if (!data.alerts || data.alerts.length === 0) {
             table.innerHTML = `
-
                 <tr>
-                    <td colspan="3" class="empty">
-                        No active warnings.
-                    </td>
+                    <td colspan="3" class="empty">No active warnings.</td>
                 </tr>
-
             `;
-
             return;
-
         }
 
-
-        data.alerts
-            .slice(0, 10)
-            .forEach(function(alert) {
-
-                const row =
-                    document.createElement("tr");
-
-
-                row.innerHTML = `
-
-                    <td>
-                        ${formatTime(
-                            alert.timestamp
-                        )}
-                    </td>
-
-                    <td>
-                        <strong>
-                            ${alert.node_id}
-                        </strong>
-                    </td>
-
-                    <td class="${
-                        alert.risk_level === "CRITICAL"
-                            ? "risk-critical"
-                            : "risk-high"
-                    }">
-
-                        ${alert.message}
-
-                    </td>
-
-                `;
-
-
-                table.appendChild(row);
-
-            });
-
+        data.alerts.slice(0, 10).forEach(function(alert) {
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${formatTime(alert.timestamp)}</td>
+                <td><strong>${alert.node_id}</strong></td>
+                <td class="${alert.risk_level === "CRITICAL" ? "risk-critical" : "risk-high"}">
+                    ${alert.message}
+                </td>
+            `;
+            table.appendChild(row);
+        });
     } catch (error) {
-
-        console.error(
-            "Alert loading error:",
-            error
-        );
-
+        console.error("Alert loading error:", error);
     }
-
 }
-
-
-/* ---------------- SOS ---------------- */
 
 async function loadSOS() {
-
     try {
-
-        const response =
-            await fetch(
-                API_URL +
-                "/api/sos"
-            );
-
-
+        const response = await fetch(API_URL + "/api/sos");
         if (!response.ok) {
             return;
         }
-
-
-        const data =
-            await response.json();
-
-
+        const data = await response.json();
         if (!data.success) {
             return;
         }
-
-
-        const table =
-            document.getElementById(
-                "sos-table-body"
-            );
-
-
+        const table = document.getElementById("sos-table-body");
         table.innerHTML = "";
 
-
-        if (
-            !data.alerts ||
-            data.alerts.length === 0
-        ) {
-
+        if (!data.alerts || data.alerts.length === 0) {
             table.innerHTML = `
-
                 <tr>
-                    <td colspan="3" class="empty">
-                        No SOS signals.
-                    </td>
+                    <td colspan="3" class="empty">No SOS signals.</td>
                 </tr>
-
             `;
-
             return;
-
         }
 
+        data.alerts.slice(0, 10).forEach(function(sos) {
+            const lat = Number(sos.latitude);
+            const lon = Number(sos.longitude);
+            const row = document.createElement("tr");
 
-        data.alerts
-            .slice(0, 10)
-            .forEach(function(sos) {
+            row.innerHTML = `
+                <td>${formatTime(sos.timestamp)}</td>
+                <td><strong>${sos.device_id}</strong></td>
+                <td>${Number.isFinite(lat) && Number.isFinite(lon) ? lat.toFixed(4) + ", " + lon.toFixed(4) : "Unknown"}</td>
+            `;
+            table.appendChild(row);
 
-                const lat =
-                    Number(sos.latitude);
+            const key = sos.device_id + "_" + sos.timestamp;
+            if (Number.isFinite(lat) && Number.isFinite(lon) && !sosMarkers[key]) {
+                sosMarkers[key] = L.circleMarker([lat, lon], {
+                    radius: 10,
+                    color: "#facc15",
+                    fillColor: "#facc15",
+                    fillOpacity: 0.9
+                }).addTo(map);
 
-                const lon =
-                    Number(sos.longitude);
-
-
-                const row =
-                    document.createElement("tr");
-
-
-                row.innerHTML = `
-
-                    <td>
-                        ${formatTime(
-                            sos.timestamp
-                        )}
-                    </td>
-
-                    <td>
-                        <strong>
-                            ${sos.device_id}
-                        </strong>
-                    </td>
-
-                    <td>
-                        ${
-                            Number.isFinite(lat) &&
-                            Number.isFinite(lon)
-                                ? lat.toFixed(4) +
-                                  ", " +
-                                  lon.toFixed(4)
-                                : "Unknown"
-                        }
-                    </td>
-
-                `;
-
-
-                table.appendChild(row);
-
-
-                /* Add SOS marker */
-
-                const key =
-                    sos.device_id +
-                    "_" +
-                    sos.timestamp;
-
-
-                if (
-                    Number.isFinite(lat) &&
-                    Number.isFinite(lon) &&
-                    !sosMarkers[key]
-                ) {
-
-                    sosMarkers[key] =
-                        L.circleMarker(
-                            [lat, lon],
-                            {
-                                radius: 10,
-                                color: "#facc15",
-                                fillColor: "#facc15",
-                                fillOpacity: 0.9
-                            }
-                        )
-                        .addTo(map);
-
-
-                    sosMarkers[key]
-                        .bindPopup(`
-
-                            <b>SOS Emergency</b>
-
-                            <br><br>
-
-                            Device:
-                            ${sos.device_id}
-
-                            <br>
-
-                            Location:
-                            ${lat.toFixed(5)},
-                            ${lon.toFixed(5)}
-
-                            <br>
-
-                            Time:
-                            ${formatTime(
-                                sos.timestamp
-                            )}
-
-                        `);
-
-                }
-
-            });
-
+                sosMarkers[key].bindPopup(`
+                    <b>SOS Emergency</b>
+                    <br><br>
+                    Device: ${sos.device_id}
+                    <br>Location: ${lat.toFixed(5)}, ${lon.toFixed(5)}
+                    <br>Time: ${formatTime(sos.timestamp)}
+                `);
+            }
+        });
     } catch (error) {
-
-        console.error(
-            "SOS loading error:",
-            error
-        );
-
+        console.error("SOS loading error:", error);
     }
-
 }
-
-
-/* ---------------- CONNECTION ---------------- */
 
 function setOnline() {
-
-    const status =
-        document.getElementById(
-            "connection-status"
-        );
-
-
-    status.innerText =
-        "Live System Online";
-
-
-    status.classList.remove(
-        "offline"
-    );
-
+    const status = document.getElementById("connection-status");
+    status.innerText = "Live System Online";
+    status.classList.remove("offline");
 }
-
 
 function setOffline() {
-
-    const status =
-        document.getElementById(
-            "connection-status"
-        );
-
-
-    status.innerText =
-        "Backend Disconnected";
-
-
-    status.classList.add(
-        "offline"
-    );
-
+    const status = document.getElementById("connection-status");
+    status.innerText = "Backend Disconnected";
+    status.classList.add("offline");
 }
-
-
-/* ---------------- MAIN FUNCTION ---------------- */
 
 async function fetchDashboardData() {
-
     try {
-
         await Promise.all([
-
             loadStatistics(),
-
             loadNodes(),
-
-            loadAlerts(),
-
-            loadSOS()
-
+            loadAlerts()
         ]);
-
         setOnline();
-
     } catch (error) {
-
-        console.error(
-            "Dashboard error:",
-            error
-        );
-
+        console.error("Dashboard error:", error);
         setOffline();
-
     }
-
 }
 
-
-/* Load dashboard when page opens */
-
 fetchDashboardData();
+loadSOS();
 
-
-/* Refresh every 5 seconds */
-
-setInterval(
-    fetchDashboardData,
-    5000
-);
-
+setInterval(fetchDashboardData, 5000);
+setInterval(loadSOS, 2000);
 </script>
-
 </body>
 </html>
