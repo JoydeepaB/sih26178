@@ -2,25 +2,23 @@ import requests
 import time
 import random
 
-TARGET = "https://sih26178-1.onrender.com/api/sensor-data"
+URL = "https://sih26178-1.onrender.com/api/sensor-data"
 NODES = ["Drain_Zone_A", "River_Bank_B", "Lowland_Zone_C"]
 
-def push_history():
+def seed():
     now = int(time.time())
     for node in NODES:
-        stack = []
-        level = 30
+        batch = []
+        val = 25
         for i in range(24):
-            ts = now - (i * 3600)
-            level += random.uniform(-2, 5)
-            stack.append({
-                "node_id": node,
-                "water_cm": round(max(20, level), 2),
-                "soil_pct": 45, "rain_mm_hr": 2,
-                "temp": 27, "humidity": 75, "timestamp": ts
+            val += random.uniform(-2, 6)
+            batch.append({
+                "node_id": node, "water_cm": round(max(20, val), 2),
+                "soil_pct": 50, "rain_mm_hr": 2, "temp": 28, "humidity": 75,
+                "timestamp": now - (i * 3600)
             })
-        requests.post(TARGET, json=stack)
-    print("Database seeding successful.")
+        requests.post(URL, json=batch)
+    print("History Pushed.")
 
 if __name__ == "__main__":
-    push_history()
+    seed()
