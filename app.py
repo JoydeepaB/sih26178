@@ -23,8 +23,7 @@ def close_db(e):
 def init_db():
     db = sqlite3.connect(DB_PATH)
     c = db.cursor()
-    c.execute("DROP TABLE IF EXISTS readings")
-    c.execute("""CREATE TABLE readings (
+    c.execute("""CREATE TABLE IF NOT EXISTS readings (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
         node_id TEXT, 
         location_name TEXT, 
@@ -43,6 +42,16 @@ def init_db():
     db.commit()
     db.close()
 
+def evaluate_risk(water_cm):
+    if water_cm >= 80:
+        return "CRITICAL", 9
+    elif water_cm >= 60:
+        return "HIGH", 6
+    elif water_cm >= 40:
+        return "MODERATE", 3
+    else:
+        return "LOW", 0
+
 @app.route("/")
 def index():
     return "System Live. All-India Feed Active."
@@ -58,17 +67,28 @@ def ingest():
     for item in items:
         uid = item["node_id"]
         loc = item.get("location_name", "National Station")
-        # GET COORDINATES FROM THE DATA
-        lt = float(item.get("latitude", 23.83))
-        ln = float(item.get("longitude", 91.28))
-        water = float(item.get("water_cm", 0))
-        risk = item.get("risk_override", "LOW")
-        score = 9 if risk == "CRITICAL" else 6 if risk == "HIGH" else 3 if risk == "MODERATE" else 0
+        try:
+            lt = float(item.get("latitude", 23.83))
+            ln = float(item.get("longitude", 91.28))
+            water = float(item.get("water_cm", 0))
+        except (ValueError, TypeError):
+            lt, ln, water = 23.83, 91.28, 0.0
+
+        if "risk_override" in item:
+            risk = item["risk_override"]
+            score = {"CRITICAL": 9, "HIGH": 6, "MODERATE": 3}.get(risk, 0)
+        else:
+            risk, score = evaluate_risk(water)
+            
         ts = int(item.get("timestamp", time.time()))
         
         cursor.execute("""INSERT INTO readings 
             (node_id, location_name, water_cm, timestamp, risk_level, risk_score, lat, lon)
             VALUES (?,?,?,?,?,?,?,?)""", (uid, loc, water, ts, risk, score, lt, ln))
+            
+        if risk in ("HIGH", "CRITICAL"):
+            cursor.execute("""INSERT INTO alerts (node_id, risk_level, message, timestamp) 
+                VALUES (?, ?, ?, ?)""", (uid, risk, f"{risk} risk detected at {loc}", ts))
     
     db.commit()
     return jsonify({"success": True}), 201
@@ -86,6 +106,12 @@ def get_stats():
     a = db.execute("SELECT COUNT(*) FROM alerts").fetchone()[0]
     return jsonify({"success": True, "statistics": {"total_readings": r, "total_alerts": a}})
 
+@app.route("/api/alerts")
+def get_alerts():
+    db = get_db()
+    data = db.execute("SELECT * FROM alerts ORDER BY timestamp DESC LIMIT 50").fetchall()
+    return jsonify({"success": True, "alerts": [dict(r) for r in data]})
+
 @app.route("/api/sos", methods=["GET", "POST"])
 def manage_sos():
     db = get_db()
@@ -96,7 +122,7 @@ def manage_sos():
         db.commit()
         return jsonify({"success": True})
     data = db.execute("SELECT * FROM sos_alerts ORDER BY timestamp DESC LIMIT 10").fetchall()
-    return jsonify({"success": True, "sos": [dict(r) for r in data]})
+    return jsonify({"success": True, "alerts": [dict(r) for r in data], "sos": [dict(r) for r in data]})
 
 @app.route("/api/nodes/<node_id>/history")
 def get_history(node_id):
