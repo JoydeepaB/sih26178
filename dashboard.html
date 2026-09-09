@@ -10,7 +10,7 @@
         h2 { margin-top: 0; color: #38bdf8; text-align: center; }
         .grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
         .card { background: #1e293b; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); margin-bottom: 20px; }
-        #map { height: 420px; border-radius: 6px; cursor: crosshair; }
+        #map { height: 400px; border-radius: 6px; cursor: crosshair; }
         .table-container { max-height: 250px; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 8px; text-align: left; border-bottom: 1px solid #334155; font-size: 14px; }
@@ -33,8 +33,35 @@
                 <div id="map"></div>
             </div>
             <div class="card">
-                <h3 id="chart-title">Hydrological Trends</h3>
+                <h3 id="chart-title">Hydrological Trends & AI Forecast</h3>
                 <canvas id="trendChart" height="100"></canvas>
+            </div>
+            <div class="card" id="ai-card" style="border-left: 4px solid #38bdf8;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; color: #38bdf8;">AI Predictive Intelligence & CWC 70-Yr Risk Profile</h3>
+                    <span id="ai-risk-badge" style="background: #0284c7; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">AI ACTIVE</span>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; font-size: 13px;">
+                    <div>
+                        <div style="color: #94a3b8; font-size: 11px;">PROJECTED PEAK (+3H)</div>
+                        <div id="ai-pred-peak" style="font-size: 18px; font-weight: bold; color: #f59e0b;">--</div>
+                        <div style="margin-top: 6px; color: #94a3b8; font-size: 11px;">SURGE VELOCITY</div>
+                        <div id="ai-surge-rate" style="font-size: 14px; font-weight: bold;">--</div>
+                        <div style="margin-top: 6px; color: #94a3b8; font-size: 11px;">EST. EVACUATION LEAD-TIME</div>
+                        <div id="ai-lead-time" style="font-size: 14px; font-weight: bold; color: #22c55e;">--</div>
+                    </div>
+                    <div>
+                        <div style="color: #94a3b8; font-size: 11px;">70-YR BASIN DAMAGE (CWC/MHA)</div>
+                        <div id="ai-cwc-damage" style="font-size: 16px; font-weight: bold; color: #f87171;">--</div>
+                        <div style="margin-top: 6px; color: #94a3b8; font-size: 11px;">LIVES LOST (1953-2023)</div>
+                        <div id="ai-cwc-lives" style="font-size: 14px; font-weight: bold;">--</div>
+                        <div style="margin-top: 6px; color: #94a3b8; font-size: 11px;">BASIN VULNERABILITY TIER</div>
+                        <div id="ai-vulnerability" style="font-size: 14px; font-weight: bold; color: #eab308;">--</div>
+                    </div>
+                </div>
+                <div id="ai-advisory" style="margin-top: 12px; padding: 10px; border-radius: 6px; background: #0f172a; border: 1px solid #334155; font-size: 12px; line-height: 1.4; color: #94a3b8;">
+                    Select or click any station to compute AI forecast and historical flood vulnerability.
+                </div>
             </div>
         </div>
         <div>
@@ -79,7 +106,28 @@
         const trendCtx = document.getElementById('trendChart').getContext('2d');
         const trendChart = new Chart(trendCtx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Water Level (cm)', data: [], borderColor: '#38bdf8', tension: 0.2, backgroundColor: 'rgba(56, 189, 248, 0.1)', fill: true }] },
+            data: { 
+                labels: [], 
+                datasets: [
+                    { 
+                        label: 'Observed Water Level (cm)', 
+                        data: [], 
+                        borderColor: '#38bdf8', 
+                        tension: 0.2, 
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)', 
+                        fill: true 
+                    },
+                    { 
+                        label: 'AI Projected Forecast (+6h)', 
+                        data: [], 
+                        borderColor: '#f59e0b', 
+                        borderDash: [6, 4], 
+                        tension: 0.3, 
+                        backgroundColor: 'rgba(245, 158, 11, 0.05)', 
+                        fill: false 
+                    }
+                ] 
+            },
             options: { 
                 scales: { 
                     x: { ticks: { color: '#94a3b8' } },
@@ -185,9 +233,63 @@
                 const data = await res.json();
                 if (!data.success) return;
 
-                document.getElementById('chart-title').innerText = `Hydrological Trends: ${locName}`;
-                trendChart.data.labels = data.history.map(h => new Date(h.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
-                trendChart.data.datasets[0].data = data.history.map(h => h.water_cm);
+                document.getElementById('chart-title').innerText = `Hydrological Trends & AI Forecast: ${locName}`;
+                
+                const histLabels = data.history.map(h => new Date(h.timestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}));
+                const histData = data.history.map(h => h.water_cm);
+
+                try {
+                    const predRes = await fetch(`${API_BASE}/api/nodes/${nodeId}/prediction`);
+                    const pred = await predRes.json();
+
+                    if (pred.success) {
+                        const lastVal = histData.length > 0 ? histData[histData.length - 1] : pred.current_water_cm;
+                        const futureLabels = ['+1h (AI)', '+2h (AI)', '+3h (AI)', '+6h (AI)'];
+                        
+                        trendChart.data.labels = [...histLabels, ...futureLabels];
+                        trendChart.data.datasets[0].data = [...histData, null, null, null, null];
+                        
+                        const nullPadding = new Array(Math.max(0, histData.length - 1)).fill(null);
+                        trendChart.data.datasets[1].data = [...nullPadding, lastVal, pred.pred_1h, pred.pred_2h, pred.pred_3h, pred.pred_6h];
+                        
+                        document.getElementById('ai-pred-peak').innerText = `${pred.pred_3h} cm`;
+                        document.getElementById('ai-surge-rate').innerText = `${pred.rate_per_hr > 0 ? '+' : ''}${pred.rate_per_hr} cm/hr`;
+                        document.getElementById('ai-lead-time').innerText = `${pred.lead_time_hours} Hours`;
+                        document.getElementById('ai-cwc-damage').innerText = `₹${pred.historical_stats.damage_crore.toLocaleString()} Cr`;
+                        document.getElementById('ai-cwc-lives').innerText = `${pred.historical_stats.human_lives.toLocaleString()} Lost`;
+                        document.getElementById('ai-vulnerability').innerText = `${pred.state} (${pred.historical_stats.tier})`;
+                        
+                        const advEl = document.getElementById('ai-advisory');
+                        advEl.innerText = pred.advisory;
+                        const badgeEl = document.getElementById('ai-risk-badge');
+                        
+                        if (pred.ai_risk_score >= 80) {
+                            advEl.style.borderColor = '#ef4444';
+                            advEl.style.color = '#fca5a5';
+                            badgeEl.style.background = '#ef4444';
+                            badgeEl.innerText = 'CRITICAL SURGE';
+                        } else if (pred.ai_risk_score >= 55) {
+                            advEl.style.borderColor = '#f59e0b';
+                            advEl.style.color = '#fde68a';
+                            badgeEl.style.background = '#f59e0b';
+                            badgeEl.innerText = 'ELEVATED RISK';
+                        } else {
+                            advEl.style.borderColor = '#334155';
+                            advEl.style.color = '#94a3b8';
+                            badgeEl.style.background = '#0284c7';
+                            badgeEl.innerText = 'AI ACTIVE';
+                        }
+                    } else {
+                        trendChart.data.labels = histLabels;
+                        trendChart.data.datasets[0].data = histData;
+                        trendChart.data.datasets[1].data = [];
+                    }
+                } catch (pe) {
+                    trendChart.data.labels = histLabels;
+                    trendChart.data.datasets[0].data = histData;
+                    trendChart.data.datasets[1].data = [];
+                }
+
                 trendChart.update();
             } catch (err) {
                 console.error(err);
