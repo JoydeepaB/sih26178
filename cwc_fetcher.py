@@ -6,7 +6,6 @@ DEST = "https://sih26178-1.onrender.com/api/sensor-data"
 
 def poll():
     try:
-        print("Polling All 300+ Indian River Stations...")
         r = requests.get(SOURCE, timeout=30)
         stations = r.json()
         for s in stations[:150]:
@@ -30,12 +29,10 @@ def poll():
                     "timestamp": int(time.time())
                 }
                 requests.post(DEST, json=payload, timeout=5)
-                print(f"Pushed: {s['station_name']} ({risk})")
             except:
                 continue
-        print("Demo Data Loaded Successfully.")
     except:
-        print("Server error. Try again in 1 minute.")
+        pass
 
 if __name__ == "__main__":
     poll()
