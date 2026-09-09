@@ -16,6 +16,7 @@ def seed():
                 "timestamp": int(time.time()) - (i * 3600)
             })
         requests.post(URL, json=batch)
+    print("Graphs populated with 24h history.")
 
 if __name__ == "__main__":
     seed()
