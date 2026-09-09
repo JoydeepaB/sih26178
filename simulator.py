@@ -16,7 +16,6 @@ def simulate():
                 "node_id": key, "water_cm": round(val["h"], 2),
                 "soil_pct": 60, "latitude": val["lat"], "longitude": val["lon"]
             })
-            print(f"IoT {key} updated.")
         time.sleep(20)
 
 if __name__ == "__main__":
