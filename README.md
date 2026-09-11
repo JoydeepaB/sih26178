@@ -145,7 +145,7 @@ Watch the dashboard as `simulator.py` runs: water level climbs, node status flip
 
 ##  System Architecture
 
-flowchart TD
+    flowchart TD
     subgraph Edge Layer [River Banks & Bridges]
         N1[Upstream Node: Ultrasonic + Rain Gauge]
         N2[Midstream Node: Ultrasonic + Silt]
