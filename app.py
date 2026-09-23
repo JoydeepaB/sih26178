@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, send_file
 from flask_cors import CORS
 import sqlite3
 import os
@@ -50,7 +50,10 @@ def evaluate_risk(water_cm):
 
 @app.route("/")
 def index():
-    return "DRISHTI AI Engine Live. 70-Year CWC Knowledge Base Active."
+    dashboard_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard.html")
+    if os.path.exists(dashboard_path):
+        return send_file(dashboard_path)
+    return "DRISHTI AI Engine Live. (dashboard.html not found in server directory)"
 
 @app.route("/api/sensor-data", methods=["POST"])
 def ingest():
