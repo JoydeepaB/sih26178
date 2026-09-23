@@ -3,6 +3,8 @@ from flask_cors import CORS
 import sqlite3
 import os
 import time
+import random
+import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -245,7 +247,105 @@ def get_prediction(node_id):
         "advisory": advisory
     })
 
+# -------------------------------------------------------------
+# 🌊 BUILT-IN AUTOMATIC CLOUD SIMULATOR & SEEDER ENGINE
+# (Runs 24/7 on the server so you never have to run VS Code scripts manually!)
+# -------------------------------------------------------------
+
+DEMO_STATIONS = [
+    {"code": "DEMO_FLASH_FLOOD_ZONE", "name": "Guwahati River Bank, Assam", "lat": 26.14, "lon": 91.73, "base": 38.0},
+    {"code": "CWC_001", "name": "Brahmaputra River, Dibrugarh, Assam", "lat": 27.47, "lon": 94.91, "base": 45.0},
+    {"code": "CWC_002", "name": "Ganga River, Patna, Bihar", "lat": 25.59, "lon": 85.13, "base": 55.0},
+    {"code": "CWC_003", "name": "Yamuna River, Delhi", "lat": 28.61, "lon": 77.20, "base": 32.0},
+    {"code": "CWC_008", "name": "Mahanadi River, Cuttack, Odisha", "lat": 20.46, "lon": 85.88, "base": 50.0},
+    {"code": "CWC_009", "name": "Cauvery River, Trichy, Tamil Nadu", "lat": 10.79, "lon": 78.70, "base": 30.0},
+    {"code": "CWC_012", "name": "Jhelum River, Srinagar, Himachal Pradesh", "lat": 34.08, "lon": 74.79, "base": 42.0},
+    {"code": "CWC_013", "name": "Kosi River, Supaul, Bihar", "lat": 26.12, "lon": 86.60, "base": 46.0},
+    {"code": "CWC_014", "name": "Teesta River, Jalpaiguri, West Bengal", "lat": 26.52, "lon": 88.73, "base": 52.0}
+]
+
+def auto_seed_and_simulate_worker():
+    """Background daemon thread to auto-seed initial history & stream live telemetry continuous in the cloud."""
+    time.sleep(1) # wait for server boot
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    
+    # 1. Check if DB has historical data; if not, seed realistic 24-hour trends
+    count = c.execute("SELECT COUNT(*) FROM readings").fetchone()[0]
+    now = int(time.time())
+    
+    if count < 10:
+        print("[DRISHTI Background Engine] Initializing database with 24-hr historical telemetry...")
+        for station in DEMO_STATIONS:
+            cur_lvl = station["base"]
+            for h in range(24, 0, -1):
+                cur_lvl = max(10.0, cur_lvl + random.uniform(-1.5, 2.2))
+                risk, score = evaluate_risk(cur_lvl)
+                ts = now - (h * 3600)
+                c.execute("""INSERT INTO readings 
+                    (node_id, location_name, water_cm, timestamp, risk_level, risk_score, lat, lon)
+                    VALUES (?,?,?,?,?,?,?,?)""", 
+                    (station["code"], station["name"], round(cur_lvl, 2), ts, risk, score, station["lat"], station["lon"]))
+        conn.commit()
+        print("[DRISHTI Background Engine] Database seeded successfully!")
+
+    # 2. Continuous 24/7 background telemetry generator
+    live_levels = {s["code"]: s["base"] + random.uniform(-2, 3) for s in DEMO_STATIONS}
+    
+    while True:
+        try:
+            now_ts = int(time.time())
+            for s in DEMO_STATIONS:
+                code = s["code"]
+                # Natural hydrological rise & fall
+                if code == "DEMO_FLASH_FLOOD_ZONE":
+                    # Flash flood demo zone cycles up and down dynamically
+                    live_levels[code] += random.uniform(0.5, 3.5)
+                    if live_levels[code] > 88: 
+                        live_levels[code] = 30.0 # reset cycle
+                else:
+                    live_levels[code] += random.uniform(-0.8, 1.2)
+                    live_levels[code] = max(15.0, min(85.0, live_levels[code]))
+                
+                water_val = round(live_levels[code], 2)
+                risk, score = evaluate_risk(water_val)
+                
+                c.execute("""INSERT INTO readings 
+                    (node_id, location_name, water_cm, timestamp, risk_level, risk_score, lat, lon)
+                    VALUES (?,?,?,?,?,?,?,?)""", 
+                    (code, s["name"], water_val, now_ts, risk, score, s["lat"], s["lon"]))
+                
+                if risk in ("HIGH", "CRITICAL"):
+                    c.execute("""INSERT INTO alerts (node_id, risk_level, message, timestamp) 
+                        VALUES (?, ?, ?, ?)""", (code, risk, f"{risk} flood alert at {s['name']} ({water_val} cm)", now_ts))
+            
+            conn.commit()
+        except Exception as err:
+            print(f"[DRISHTI Simulator Error]: {err}")
+        
+        # Stream new telemetry point every 15 seconds
+        time.sleep(15)
+
+# Trigger Instant Flood Spike for live judge demonstration
+@app.route("/api/demo-surge", methods=["GET", "POST"])
+def demo_surge():
+    """Instantly injects a critical flood surge for live demos."""
+    db = get_db()
+    now_ts = int(time.time())
+    db.execute("""INSERT INTO readings 
+        (node_id, location_name, water_cm, timestamp, risk_level, risk_score, lat, lon)
+        VALUES (?,?,?,?,?,?,?,?)""", 
+        ("DEMO_FLASH_FLOOD_ZONE", "Guwahati River Bank, Assam", 86.5, now_ts, "CRITICAL", 9, 26.14, 91.73))
+    db.execute("""INSERT INTO alerts (node_id, risk_level, message, timestamp) 
+        VALUES (?, ?, ?, ?)""", ("DEMO_FLASH_FLOOD_ZONE", "CRITICAL", "FLASH FLOOD WARNING: Water level spiked to 86.5 cm at Guwahati River Bank", now_ts))
+    db.commit()
+    return jsonify({"success": True, "message": "Critical Flash Flood Surge Injected Live!"})
+
 init_db() 
+
+# Start automatic continuous cloud simulator thread
+sim_thread = threading.Thread(target=auto_seed_and_simulate_worker, daemon=True)
+sim_thread.start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
