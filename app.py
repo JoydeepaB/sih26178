@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, g
+from flask import Flask, request, jsonify, g, send_file
 from flask_cors import CORS
 import sqlite3
 import os
@@ -14,7 +14,6 @@ CORS(app)
 
 DB_PATH = "environment.db"
 
-# Official 70-year disaster impact figures (1953-2023)
 CWC_MHA_HISTORICAL_DATA = {
     "Assam": {
         "cwc_70yr_lives_lost": 3485,
@@ -102,7 +101,6 @@ CWC_MHA_HISTORICAL_DATA = {
     }
 }
 
-# Monitoring station benchmarks
 INDIAN_STATIONS = [
     {"node_id": "NODE_CWC_01", "name": "Brahmaputra - Guwahati (Assam)", "state": "Assam", "lat": 26.185, "lon": 91.750, "base_depth": 48.5, "danger_level": 49.68},
     {"node_id": "NODE_CWC_02", "name": "Ganga - Patna Dighaghat (Bihar)", "state": "Bihar", "lat": 25.632, "lon": 85.110, "base_depth": 47.8, "danger_level": 50.45},
@@ -122,7 +120,6 @@ def get_live_weather(lat, lon):
     key = f"{round(lat, 2)},{round(lon, 2)}"
     now = time.time()
     
-    # Cache response for 10 minutes to stay within fair use
     if key in weather_cache:
         data, cached_at = weather_cache[key]
         if now - cached_at < 600:
@@ -140,7 +137,6 @@ def get_live_weather(lat, lon):
             weather_cache[key] = (result, now)
             return result
     except Exception:
-        # Fallback values if network request times out
         return {"rain_mm": 0.0, "temp_c": 28.0, "live": False}
 
 def get_db():
@@ -181,7 +177,6 @@ def init_db():
     db.commit()
     db.close()
 
-# Demo surge trigger state
 surge_state = {"active": False, "node_id": None, "expires_at": 0}
 
 def background_telemetry_loop():
@@ -199,14 +194,12 @@ def background_telemetry_loop():
                 weather = get_live_weather(stn["lat"], stn["lon"])
                 rain_mm = weather["rain_mm"]
                 
-                # Daily tide cycle + rain run-off impact
                 diurnal = math.sin((now % 86400) / 86400.0 * 2 * math.pi) * 0.15
                 rain_run_off = rain_mm * 0.12
                 noise = random.uniform(-0.04, 0.05)
                 
                 current_depth = round(stn["base_depth"] + diurnal + rain_run_off + noise, 2)
 
-                # Surge override for demo evaluations
                 if is_surge and (target == "ALL" or target == stn["node_id"]):
                     current_depth = round(stn["danger_level"] + random.uniform(0.4, 1.1), 2)
                     rain_mm = max(rain_mm, random.uniform(50.0, 90.0))
@@ -236,7 +229,6 @@ def background_telemetry_loop():
                         VALUES (?, ?, ?, ?)
                     """, (stn["node_id"], risk_level, msg, now))
 
-            # Keep database lightweight
             cursor.execute("DELETE FROM readings WHERE id NOT IN (SELECT id FROM readings ORDER BY timestamp DESC LIMIT 600)")
             cursor.execute("DELETE FROM alerts WHERE id NOT IN (SELECT id FROM alerts ORDER BY timestamp DESC LIMIT 100)")
             
@@ -251,7 +243,18 @@ def background_telemetry_loop():
 
         time.sleep(15)
 
+# Serve the dashboard HTML directly at the root URL
 @app.route("/", methods=["GET"])
+def index():
+    if os.path.exists("dashboard.html"):
+        return send_file("dashboard.html")
+    return jsonify({
+        "status": "online",
+        "service": "DRISHTI Early Warning Command",
+        "stations": len(INDIAN_STATIONS)
+    })
+
+@app.route("/api/status", methods=["GET"])
 def health():
     return jsonify({
         "status": "online",
