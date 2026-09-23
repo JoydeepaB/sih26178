@@ -159,7 +159,7 @@
     </div>
     <div class="status-badge">
       <div class="pulse-dot"></div>
-      <span>LIVE METEO FEED</span>
+      <span id="conn-status">LIVE TELEMETRY ACTIVE</span>
     </div>
   </header>
 
@@ -210,10 +210,10 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-    // Determine backend address based on host
-    const API_BASE = window.location.hostname.includes("onrender.com")
+    // Points to the active host (Render or local server)
+    const API_BASE = window.location.origin.includes("http") && !window.location.origin.startsWith("file://")
       ? window.location.origin
-      : "http://localhost:5000";
+      : "https://sih26178-1.onrender.com";
 
     let map, markers = {}, hydroChart;
     let selectedNode = "NODE_CWC_01";
@@ -263,8 +263,10 @@
         const data = await res.json();
         renderStations(data);
         updateMap(data);
+        document.getElementById("conn-status").innerText = "LIVE TELEMETRY ACTIVE";
       } catch (err) {
         console.warn("Could not fetch live telemetry:", err);
+        document.getElementById("conn-status").innerText = "CONNECTING...";
       }
     }
 
@@ -391,7 +393,6 @@
       fetchAlerts();
       selectStation(selectedNode);
 
-      // Periodic poll
       setInterval(fetchLiveData, 10000);
       setInterval(fetchAlerts, 15000);
       setInterval(() => selectStation(selectedNode), 12000);
