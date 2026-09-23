@@ -173,7 +173,6 @@ Watch the dashboard as `simulator.py` runs: water level climbs, node status flip
 ---
 
 ## Live Deployment
-
-Backend: [`sih26178-1.onrender.com`](https://sih26178-1.onrender.com)
+ [`sih26178-1.onrender.com`](https://sih26178-1.onrender.com)
 
 ---
