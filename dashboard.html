@@ -218,14 +218,16 @@
     let map, markers = {}, hydroChart;
     let selectedNode = "NODE_CWC_01";
 
-    function initMap() {
-      map = L.map('map').setView([22.5937, 78.9629], 5);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        maxZoom: 18
-      }).addTo(map);
-    }
 
+function initMap() {
+  map = L.map('map').setView([22.5937, 78.9629], 5);
+  
+  // Standard free OpenStreetMap tile server - no API key required
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 18
+  }).addTo(map);
+}
     function initChart() {
       const ctx = document.getElementById('hydroChart').getContext('2d');
       hydroChart = new Chart(ctx, {
