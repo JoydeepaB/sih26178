@@ -121,49 +121,58 @@ python app.py
 
 ### Target Production Architecture
 
+```mermaid
 flowchart TD
-subgraph Edge Layer [River Banks & Bridges]
-    N1[Upstream Node: Ultrasonic + Rain Gauge]
-    N2[Midstream Node: Ultrasonic + Silt]
-    N3[Downstream Node: Water Level]
-    N1 -- LoRa Mesh --> N2
-    N2 -- LoRa Mesh --> N3
-end
+    subgraph Edge Layer [River Banks & Bridges]
+        N1[Upstream Node: Ultrasonic + Rain Gauge]
+        N2[Midstream Node: Ultrasonic + Silt]
+        N3[Downstream Node: Water Level]
+        N1 -- LoRa Mesh --> N2
+        N2 -- LoRa Mesh --> N3
+    end
 
-subgraph Gateway Layer
-    N3 -- LoRa / GSM Fallback --> GW[Field Gateway / Cloud Ingest]
-end
+    subgraph Gateway Layer
+        N3 -- LoRa / GSM Fallback --> GW[Field Gateway / Cloud Ingest]
+    end
 
-subgraph Cloud & AI Engine
-    GW --> API[Flask REST API - Render]
-    CWC[CWC / IMD Historical Matrix 1953-2023] --> AI[AI Predictive Engine]
-    API --> DB[(SQLite / Persistent DB)]
-    DB --> AI
-end
+    subgraph Cloud & AI Engine
+        GW --> API[Flask REST API - Render]
+        CWC[CWC / IMD Historical Matrix 1953-2023] --> AI[AI Predictive Engine]
+        API --> DB[(SQLite / Persistent DB)]
+        DB --> AI
+    end
 
-subgraph Command & Citizen Delivery
-    AI --> DASH[DRISHTI Live Situation Dashboard]
-    AI --> SOS[Automated Siren & Regional Voice Alerts]
-    DASH --> AUTH[District Authorities / NDRF]
-end
+    subgraph Command & Citizen Delivery
+        AI --> DASH[DRISHTI Live Situation Dashboard]
+        AI --> SOS[Automated Siren & Regional Voice Alerts]
+        DASH --> AUTH[District Authorities / NDRF]
+    end
+```
 
 *This represents the full DRISHTI vision — physical sensor mesh, LoRa networking, and multi-channel alerting — being built by the hardware track in parallel.*
 
 ### What This Repository Implements Today
 
+```mermaid
 flowchart LR
     W[Open-Meteo Live Weather API] --> ENGINE
+
     subgraph ENGINE [DRISHTI Backend Engine]
-        LOOP[Background Telemetry Worker<br/>10 Stations · 15s Refresh]
+        LOOP[Background Telemetry Worker<br/>10 Stations - 15s Refresh]
         RISK[Risk Classification<br/>NORMAL / WARNING / CRITICAL]
         SURGE[Demo Surge Trigger]
         LOOP --> RISK
         SURGE --> LOOP
     end
+
     ENGINE --> DB[(SQLite: Readings + Alerts)]
     DB --> API[Flask REST API]
     CWC[CWC/MHA 70-Year Historical Data] --> API
     API --> DASH[DRISHTI Live Command Dashboard]
+    DASH --> MAP[Leaflet Geospatial View]
+    DASH --> CHART[Hydrograph + Forecast Curve]
+    DASH --> ALERTS[Live Alert Feed]
+```
 
 *This is the software command layer running live right now — self-contained, no physical hardware required to demo.*
 
